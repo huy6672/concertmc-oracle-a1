@@ -1,3 +1,4 @@
+
 name: ConcertMC Oracle A1 Auto Retry
 
 on:
@@ -61,9 +62,10 @@ jobs:
           if not ssh_key.startswith(("ssh-rsa ", "ssh-ed25519 ")):
               sys.exit("ERROR: Invalid SSH public key")
 
-          # Write API signing key to a temporary protected file.
+          # Create temporary Oracle API key file
           with tempfile.NamedTemporaryFile(
-              mode="w", delete=False
+              mode="w",
+              delete=False
           ) as f:
               key_path = f.name
               f.write(private_key)
@@ -73,15 +75,23 @@ jobs:
           os.chmod(key_path, 0o600)
 
           try:
+              config = {
+                  "user": os.environ["OCI_USER_OCID"],
+                  "tenancy": os.environ["OCI_TENANCY_OCID"],
+                  "fingerprint": os.environ["OCI_FINGERPRINT"],
+                  "key_file": key_path,
+                  "region": region
+              }
+
               signer = oci.signer.Signer(
-                  tenancy=os.environ["OCI_TENANCY_OCID"],
-                  user=os.environ["OCI_USER_OCID"],
-                  fingerprint=os.environ["OCI_FINGERPRINT"],
+                  tenancy=config["tenancy"],
+                  user=config["user"],
+                  fingerprint=config["fingerprint"],
                   private_key_file_location=key_path
               )
 
               client = oci.core.ComputeClient(
-                  {"region": region},
+                  config,
                   signer=signer
               )
 
@@ -92,7 +102,7 @@ jobs:
                   compartment_id=compartment
               ).data
 
-              # Stop if ConcertMC already exists.
+              # Prevent duplicate ConcertMC instances
               for instance in instances:
                   if (
                       instance.display_name == name
@@ -106,40 +116,46 @@ jobs:
                       print("No new instance will be created.")
                       sys.exit(0)
 
-              # Avoid consuming additional A1 resources.
+              # Stop if another active A1 instance exists
               for instance in instances:
                   if (
                       instance.shape == "VM.Standard.A1.Flex"
                       and instance.lifecycle_state != "TERMINATED"
                   ):
                       sys.exit(
-                          "STOP: Another A1 instance exists. "
+                          "STOP: Another A1 instance already exists. "
                           "Manual review required."
                       )
 
-              print("Trying A1: 4 OCPU / 24 GB / 100 GB...", flush=True)
+              print(
+                  "Trying A1: 4 OCPU / 24 GB / 100 GB...",
+                  flush=True
+              )
 
               details = oci.core.models.LaunchInstanceDetails(
                   availability_domain=ad,
                   compartment_id=compartment,
                   display_name=name,
                   shape="VM.Standard.A1.Flex",
+
                   shape_config=oci.core.models.LaunchInstanceShapeConfigDetails(
                       ocpus=4,
                       memory_in_gbs=24
                   ),
+
                   source_details=oci.core.models.InstanceSourceViaImageDetails(
                       image_id=image,
                       boot_volume_size_in_gbs=100
                   ),
+
                   create_vnic_details=oci.core.models.CreateVnicDetails(
                       subnet_id=subnet,
                       assign_public_ip=True
                   ),
+
                   metadata={
                       "ssh_authorized_keys": ssh_key
-                  },
-                  is_pv_encryption_in_transit_enabled=False
+                  }
               )
 
               try:
@@ -160,7 +176,9 @@ jobs:
                       or "Out of capacity" in message
                       or "Out of host capacity" in message
                   ):
-                      print("NO CAPACITY: Waiting for next scheduled run.")
+                      print(
+                          "NO CAPACITY: Waiting for next scheduled run."
+                      )
                       sys.exit(0)
 
                   print("ORACLE ERROR:", message)
