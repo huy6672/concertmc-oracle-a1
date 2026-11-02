@@ -211,9 +211,11 @@ jobs:
                       print(
                           "NO CAPACITY: Waiting for next scheduled run."
                       )
-                      # Gửi thông báo khi hết tài nguyên (nếu muốn mỗi lần chạy đều báo cáo)
-                      # Uncomment dòng dưới nếu bạn muốn nhận cả thông báo hết tài nguyên mỗi 5 phút:
-                      # send_telegram("⏳ *Lượt săn VPS:* Osaka đang hết tài nguyên (Out of Host Capacity). Đang chờ lịch chạy tiếp theo...")
+                      # Gửi thông báo khi hết tài nguyên
+                      send_telegram(
+                          "⏳ *Lượt săn VPS Osaka:* Vẫn đang hết tài nguyên (Out"
+                          " of HostCapacity). Đang tiếp tục thử lại tự động..."
+                      )
                       sys.exit(0)
 
                   print("ORACLE ERROR:", message)
