@@ -1,5 +1,4 @@
-
-name: ConcertMC Oracle A1 Auto Retry
+Name: ConcertMC Oracle A1 Auto Retry
 
 on:
   schedule:
@@ -25,11 +24,13 @@ jobs:
       OCI_PRIVATE_KEY: ${{ secrets.OCI_PRIVATE_KEY }}
       OCI_REGION: ${{ secrets.OCI_REGION }}
       OCI_SSH_PUBLIC_KEY: ${{ secrets.OCI_SSH_PUBLIC_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELE_CHAT_ID: ${{ secrets.TELE_CHAT_ID }}
 
     steps:
-      - name: Install Oracle Python SDK
+      - name: Install Oracle Python SDK & Requests
         run: |
-          python -m pip install --quiet "oci>=2.130,<3"
+          python -m pip install --quiet "oci>=2.130,<3" requests
 
       - name: Check and launch ConcertMC A1
         shell: bash
@@ -39,6 +40,23 @@ jobs:
           import sys
           import tempfile
           import oci
+          import requests
+
+          def send_telegram(message):
+              token = os.environ.get("TELEGRAM_BOT_TOKEN")
+              chat_id = os.environ.get("TELE_CHAT_ID")
+              if token and chat_id:
+                  url = f"https://api.telegram.org/bot{token}/sendMessage"
+                  payload = {
+                      "chat_id": chat_id,
+                      "text": message,
+                      "parse_mode": "Markdown"
+                  }
+                  try:
+                      requests.post(url, json=payload, timeout=10)
+                      print("Telegram notification sent successfully!", flush=True)
+                  except Exception as e:
+                      print(f"Failed to send Telegram notification: {e}", flush=True)
 
           compartment = os.environ["OCI_TENANCY_OCID"]
           region = os.environ["OCI_REGION"]
@@ -164,9 +182,22 @@ jobs:
                       retry_strategy=oci.retry.NoneRetryStrategy()
                   )
 
+                  instance_id = response.data.id
+                  state = response.data.lifecycle_state
+
                   print("SUCCESS: Oracle accepted launch request!")
-                  print("Instance OCID:", response.data.id)
-                  print("State:", response.data.lifecycle_state)
+                  print("Instance OCID:", instance_id)
+                  print("State:", state)
+
+                  # Gửi thông báo Telegram khi tạo thành công
+                  msg = (
+                      "🎉 *SĂN THÀNH CÔNG VPS ORACLE A1!*\n\n"
+                      f"📌 *Name:* `{name}`\n"
+                      f"⚡ *State:* `{state}`\n"
+                      f"🆔 *Instance ID:* `{instance_id}`\n"
+                      "💻 *Cấu hình:* 4 OCPU / 24GB RAM / 100GB Disk"
+                  )
+                  send_telegram(msg)
 
               except oci.exceptions.ServiceError as error:
                   message = str(error)
@@ -187,3 +218,4 @@ jobs:
           finally:
               os.remove(key_path)
           PY
+
