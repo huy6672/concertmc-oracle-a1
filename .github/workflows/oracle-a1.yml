@@ -1,4 +1,4 @@
-Name: ConcertMC Oracle A1 Auto Retry
+name: ConcertMC Oracle A1 Auto Retry
 
 on:
   schedule:
