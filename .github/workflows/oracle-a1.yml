@@ -41,6 +41,7 @@ jobs:
           import tempfile
           import oci
           import requests
+          from datetime import datetime
 
           def send_telegram(message):
               token = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -189,7 +190,7 @@ jobs:
                   print("Instance OCID:", instance_id)
                   print("State:", state)
 
-                  # Gửi thông báo Telegram khi tạo thành công
+                  # Gửi thông báo khi tạo thành công
                   msg = (
                       "🎉 *SĂN THÀNH CÔNG VPS ORACLE A1!*\n\n"
                       f"📌 *Name:* `{name}`\n"
@@ -210,12 +211,15 @@ jobs:
                       print(
                           "NO CAPACITY: Waiting for next scheduled run."
                       )
+                      # Gửi thông báo khi hết tài nguyên (nếu muốn mỗi lần chạy đều báo cáo)
+                      # Uncomment dòng dưới nếu bạn muốn nhận cả thông báo hết tài nguyên mỗi 5 phút:
+                      # send_telegram("⏳ *Lượt săn VPS:* Osaka đang hết tài nguyên (Out of Host Capacity). Đang chờ lịch chạy tiếp theo...")
                       sys.exit(0)
 
                   print("ORACLE ERROR:", message)
+                  send_telegram(f"❌ *LỖI ORACLE:* `{message}`")
                   sys.exit(1)
 
           finally:
               os.remove(key_path)
           PY
-
